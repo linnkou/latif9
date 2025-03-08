@@ -1,0 +1,13 @@
+Flask
+SQLAlchemy
+alembic
+arabic-reshaper
+flask
+matplotlib
+openpyxl
+pandas
+python-bidi
+python-docx
+seaborn
+sqlalchemy
+werkzeug

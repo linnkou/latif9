@@ -1,0 +1,2467 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام تحليل نتائج التلاميذ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/docx/7.8.2/docx.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        'algerian-green': '#008f39',  // Algerian flag green
+                        'algerian-red': '#d21034' // Algerian flag red
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap');
+        
+        :root {
+            --algerian-green: #008f39;
+            --algerian-red: #d21034;
+            --white: #ffffff;
+        }
+        
+        body {
+            font-family: 'Tajawal', sans-serif;
+        }
+        
+        .dark {
+            color-scheme: dark;
+        }
+        
+        .dark input::placeholder,
+        .dark textarea::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+        
+        .loader {
+            border-top-color: var(--algerian-green);
+            animation: spinner 0.6s linear infinite;
+        }
+        
+        @keyframes spinner {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes shimmer {
+            0% {
+                background-position: -100% 0;
+            }
+            100% {
+                background-position: 200% 0;
+            }
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.7;
+            }
+        }
+
+        .glowing-green-button {
+            background: linear-gradient(90deg, 
+                        #008f39, #00b347, #008f39);
+            background-size: 200% 100%;
+            color: white;
+            font-weight: 600;
+            border: none;
+            position: relative;
+            overflow: hidden;
+            animation: shimmer 3s infinite;
+            box-shadow: 0 0 15px rgba(0, 143, 57, 0.5);
+            transition: all 0.3s ease;
+        }
+
+        .glowing-green-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 0 20px rgba(0, 143, 57, 0.7);
+        }
+
+        .glowing-red-button {
+            background: linear-gradient(90deg, 
+                        #d21034, #f02046, #d21034);
+            background-size: 200% 100%;
+            color: white;
+            font-weight: 600;
+            border: none;
+            position: relative;
+            overflow: hidden;
+            animation: shimmer 3s infinite;
+            box-shadow: 0 0 15px rgba(210, 16, 52, 0.5);
+            transition: all 0.3s ease;
+        }
+
+        .glowing-red-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 0 20px rgba(210, 16, 52, 0.7);
+        }
+
+        .glowing-blue-button {
+            background: linear-gradient(90deg, 
+                        #2563eb, #4f85f1, #2563eb);
+            background-size: 200% 100%;
+            color: white;
+            font-weight: 600;
+            border: none;
+            position: relative;
+            overflow: hidden;
+            animation: shimmer 3s infinite;
+            box-shadow: 0 0 15px rgba(37, 99, 235, 0.5);
+            transition: all 0.3s ease;
+        }
+
+        .glowing-blue-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 0 20px rgba(37, 99, 235, 0.7);
+        }
+        
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+        
+        .section-tab {
+            transition: all 0.3s;
+        }
+        
+        .section-tab.active {
+            border-color: var(--algerian-green);
+            background-color: rgba(0, 143, 57, 0.1);
+            font-weight: 600;
+        }
+        
+        .dark .section-tab.active {
+            background-color: rgba(0, 143, 57, 0.2);
+        }
+        
+        /* Header colors animation */
+        .algerian-gradient {
+            background: linear-gradient(to right, var(--algerian-green), var(--white), var(--algerian-red));
+            height: 8px;
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 1rem;
+            border-radius: 4px;
+        }
+        
+        .algerian-gradient::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, 
+                        transparent, rgba(255, 255, 255, 0.7), transparent);
+            animation: shimmer 3s infinite;
+        }
+
+        /* Progress bar animation */
+        @keyframes progress-animation {
+            0% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        .animated-progress-bar {
+            background: linear-gradient(45deg, #008f39, #00b347, #63d471, #00b347, #008f39);
+            background-size: 200% 200%;
+            animation: progress-animation 2s ease infinite;
+        }
+
+        /* PDF styling */
+        @media print {
+            body {
+                background-color: white !important;
+                color: black !important;
+            }
+            
+            .no-print {
+                display: none !important;
+            }
+            
+            .print-only {
+                display: block !important;
+            }
+            
+            .container {
+                max-width: 100% !important;
+                padding: 0 !important;
+            }
+            
+            .bg-white, .bg-gray-100, .bg-gray-200, .dark\:bg-gray-700, .dark\:bg-gray-800 {
+                background-color: white !important;
+                color: black !important;
+                border: 1px solid #ddd !important;
+            }
+            
+            .text-white, .text-gray-200, .text-gray-800, .dark\:text-gray-200, .dark\:text-gray-400 {
+                color: black !important;
+            }
+        }
+        
+        /* PDF Preview styles */
+        .pdf-document {
+            max-width: 210mm;
+            margin: 0 auto;
+            background: white;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            padding: 20mm;
+            color: #333;
+        }
+        
+        .dark .pdf-document {
+            background: #fcfcfc;
+        }
+        
+        .pdf-header {
+            margin-bottom: 10mm;
+            padding-bottom: 5mm;
+            border-bottom: 1px solid #ddd;
+            position: relative;
+        }
+        
+        .pdf-title {
+            font-size: 24pt;
+            color: var(--algerian-green);
+            margin-bottom: 5mm;
+        }
+        
+        .pdf-subtitle {
+            font-size: 16pt;
+            margin-bottom: 2mm;
+        }
+        
+        .pdf-date {
+            font-size: 10pt;
+            color: #666;
+        }
+        
+        .pdf-section {
+            margin-bottom: 8mm;
+        }
+        
+        .pdf-section-title {
+            font-size: 14pt;
+            margin-bottom: 4mm;
+            color: var(--algerian-green);
+            border-bottom: 1px solid #eee;
+            padding-bottom: 2mm;
+        }
+        
+        .pdf-stat-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 5mm;
+            margin-bottom: 5mm;
+        }
+        
+        .pdf-stat-box {
+            border: 1px solid #ddd;
+            border-radius: 3mm;
+            padding: 3mm;
+        }
+        
+        .pdf-stat-label {
+            font-size: 9pt;
+            color: #666;
+        }
+        
+        .pdf-stat-value {
+            font-size: 14pt;
+            font-weight: bold;
+        }
+        
+        .pdf-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 5mm;
+        }
+        
+        .pdf-table th {
+            background-color: #f5f5f5;
+            padding: 2mm;
+            text-align: right;
+            font-weight: bold;
+            border: 1px solid #ddd;
+        }
+        
+        .pdf-table td {
+            padding: 2mm;
+            border: 1px solid #ddd;
+        }
+        
+        .pdf-footer {
+            margin-top: 10mm;
+            padding-top: 3mm;
+            border-top: 1px solid #ddd;
+            text-align: center;
+            font-size: 9pt;
+            color: #666;
+        }
+    </style>
+</head>
+<body class="bg-white dark:bg-[#181818] text-gray-800 dark:text-gray-200 transition-colors duration-200">
+    <div class="container mx-auto px-4 py-8 max-w-5xl">
+        <header class="text-center mb-8 relative">
+            <div class="algerian-gradient"></div>
+            <h1 class="text-3xl md:text-4xl font-bold text-algerian-green mb-2">نظام تحليل نتائج التلاميذ</h1>
+            <p class="text-gray-600 dark:text-gray-400">تطبيق لتحليل وعرض نتائج التلاميذ مع إنشاء الرسوم البيانية</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Input Section -->
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+                <h2 class="text-2xl font-bold mb-6 text-algerian-green">إدخال البيانات</h2>
+                
+                <!-- Excel File Upload -->
+                <div class="mb-6">
+                    <label for="excelFile" class="block mb-2 font-medium">رفع ملف Excel:</label>
+                    <input type="file" id="excelFile" accept=".xlsx, .xls" class="w-full px-3 py-2 text-base rounded-lg bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600">
+                </div>
+                
+                <!-- Excel Sections Tabs (visible after file upload) -->
+                <div id="excelSectionsTabs" class="mb-6 hidden">
+                    <h3 class="text-lg font-semibold mb-2">اختر القسم:</h3>
+                    <div class="flex overflow-x-auto pb-2 mb-2 border-b border-gray-200 dark:border-gray-700">
+                        <!-- Section tabs will be added here -->
+                    </div>
+                    <p id="currentSheetInfo" class="text-sm text-gray-600 dark:text-gray-400 mb-2"></p>
+                </div>
+                
+                <!-- Class Information -->
+                <div class="mb-6">
+                    <label for="className" class="block mb-2 font-medium">اسم القسم</label>
+                    <input type="text" id="className" class="w-full px-4 py-3 text-base rounded-lg bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-algerian-green focus:border-algerian-green" placeholder="مثال: الصف الثالث - أ">
+                </div>
+                
+                <!-- Grade Comments -->
+                <div class="mb-6">
+                    <h3 class="text-lg font-semibold mb-3">ملاحظات التقديرات</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="comment0" class="block mb-1 text-sm">أقل من 8:</label>
+                            <input type="text" id="comment0" value="ضعيف جدا" class="w-full px-3 py-2 text-base rounded-lg bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600">
+                        </div>
+                        <div>
+                            <label for="comment1" class="block mb-1 text-sm">من 8 إلى 9.99:</label>
+                            <input type="text" id="comment1" value="ضعيف" class="w-full px-3 py-2 text-base rounded-lg bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600">
+                        </div>
+                        <div>
+                            <label for="comment2" class="block mb-1 text-sm">من 10 إلى 11.99:</label>
+                            <input type="text" id="comment2" value="مقبول" class="w-full px-3 py-2 text-base rounded-lg bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600">
+                        </div>
+                        <div>
+                            <label for="comment3" class="block mb-1 text-sm">من 12 إلى 13.99:</label>
+                            <input type="text" id="comment3" value="متوسط" class="w-full px-3 py-2 text-base rounded-lg bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600">
+                        </div>
+                        <div>
+                            <label for="comment4" class="block mb-1 text-sm">من 14 إلى 15.99:</label>
+                            <input type="text" id="comment4" value="حسن" class="w-full px-3 py-2 text-base rounded-lg bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600">
+                        </div>
+                        <div>
+                            <label for="comment5" class="block mb-1 text-sm">من 16 إلى 17.99:</label>
+                            <input type="text" id="comment5" value="جيد جدا" class="w-full px-3 py-2 text-base rounded-lg bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600">
+                        </div>
+                        <div>
+                            <label for="comment6" class="block mb-1 text-sm">من 18 إلى 20:</label>
+                            <input type="text" id="comment6" value="ممتاز" class="w-full px-3 py-2 text-base rounded-lg bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Student Entry -->
+                <div class="mb-6">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="text-lg font-semibold">إدخال بيانات التلاميذ</h3>
+                        <button id="addStudent" class="px-3 py-1 glowing-green-button rounded-md transition">+ إضافة تلميذ</button>
+                    </div>
+                    
+                    <div id="studentTable" class="overflow-x-auto">
+                        <table class="w-full border-collapse">
+                            <thead>
+                                <tr class="bg-gray-200 dark:bg-gray-700">
+                                    <th class="p-2 text-right border">#</th>
+                                    <th class="p-2 text-right border">رقم التعريف</th>
+                                    <th class="p-2 text-right border">الاسم</th>
+                                    <th class="p-2 text-right border">اللقب</th>
+                                    <th class="p-2 text-right border">النشاطات (20)</th>
+                                    <th class="p-2 text-right border">الفرض (20)</th>
+                                    <th class="p-2 text-right border">الاختبار (20)</th>
+                                    <th class="p-2 text-right border">العمليات</th>
+                                </tr>
+                            </thead>
+                            <tbody id="studentRows">
+                                <!-- Students will be added here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- Analysis Button -->
+                <div>
+                    <button id="analyzeButton" class="w-full py-3 glowing-green-button font-medium rounded-lg transition flex items-center justify-center">
+                        <span>تحليل النتائج</span>
+                        <span id="analyzeLoader" class="loader mr-3 w-5 h-5 border-2 border-gray-300 border-t-2 rounded-full hidden"></span>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Results Section -->
+            <div id="resultsSection" class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 hidden">
+                <h2 class="text-2xl font-bold mb-6 text-algerian-green">نتائج التحليل</h2>
+                
+                <!-- Summary Statistics -->
+                <div class="mb-6">
+                    <h3 class="text-lg font-semibold mb-3">ملخص النتائج</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        <div class="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg">
+                            <p class="text-sm text-gray-600 dark:text-gray-400">عدد التلاميذ</p>
+                            <p id="totalStudents" class="text-xl font-bold">-</p>
+                        </div>
+                        <div class="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg">
+                            <p class="text-sm text-gray-600 dark:text-gray-400">المعدل العام</p>
+                            <p id="averageGrade" class="text-xl font-bold">-</p>
+                        </div>
+                        <div class="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg">
+                            <p class="text-sm text-gray-600 dark:text-gray-400">نسبة النجاح</p>
+                            <p id="passRate" class="text-xl font-bold">-</p>
+                        </div>
+                        <div class="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg">
+                            <p class="text-sm text-gray-600 dark:text-gray-400">أعلى معدل</p>
+                            <p id="highestGrade" class="text-xl font-bold">-</p>
+                        </div>
+                        <div class="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg">
+                            <p class="text-sm text-gray-600 dark:text-gray-400">أدنى معدل</p>
+                            <p id="lowestGrade" class="text-xl font-bold">-</p>
+                        </div>
+                        <div class="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg">
+                            <p class="text-sm text-gray-600 dark:text-gray-400">عدد الناجحين</p>
+                            <p id="passingCount" class="text-xl font-bold">-</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Absent or Missing Data Notes -->
+                <div id="missingDataSection" class="mb-6 bg-yellow-50 dark:bg-yellow-900/30 p-4 rounded-lg border border-yellow-200 dark:border-yellow-800 hidden">
+                    <h3 class="text-lg font-semibold mb-2 text-yellow-800 dark:text-yellow-400">ملاحظات هامة</h3>
+                    <div id="missingDataContent">
+                        <!-- Missing data info will be added here -->
+                    </div>
+                </div>
+                
+                <!-- Charts -->
+                <div class="mb-6 grid grid-cols-1 gap-6">
+                    <div>
+                        <h3 class="text-lg font-semibold mb-3">المخطط العمودي لتوزيع التقديرات</h3>
+                        <div class="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg">
+                            <canvas id="barChart" height="250"></canvas>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold mb-3">المخطط الدائري لنسب التقديرات</h3>
+                        <div class="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg">
+                            <canvas id="pieChart" height="250"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Export Buttons -->
+                <div class="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <button id="exportPdfButton" class="py-3 glowing-red-button font-medium rounded-lg transition flex items-center justify-center">
+                        <span>تحميل التقرير كملف PDF</span>
+                    </button>
+                    <button id="exportWordButton" class="py-3 glowing-blue-button font-medium rounded-lg transition flex items-center justify-center">
+                        <span>تحميل التقرير كملف Word</span>
+                    </button>
+                    <button id="exportExcelButton" class="py-3 glowing-green-button font-medium rounded-lg transition flex items-center justify-center">
+                        <span>تحميل ملف Excel</span>
+                    </button>
+                </div>
+                
+                <!-- Student Results Table -->
+                <div class="mb-6">
+                    <h3 class="text-lg font-semibold mb-3">قائمة التلاميذ والنتائج</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full border-collapse">
+                            <thead>
+                                <tr class="bg-gray-200 dark:bg-gray-700">
+                                    <th class="p-2 text-right border">#</th>
+                                    <th class="p-2 text-right border">الاسم الكامل</th>
+                                    <th class="p-2 text-right border">المعدل النهائي</th>
+                                    <th class="p-2 text-right border">التقدير</th>
+                                    <th class="p-2 text-right border">الحالة</th>
+                                </tr>
+                            </thead>
+                            <tbody id="resultsTable">
+                                <!-- Results will be added here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <!-- Top Students -->
+                <div>
+                    <h3 class="text-lg font-semibold mb-3">أفضل التلاميذ</h3>
+                    <div id="topStudents" class="space-y-3">
+                        <!-- Top students will be added here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress Bar (Fixed at bottom) -->
+        <div id="progressBarContainer" class="fixed bottom-0 left-0 right-0 w-full p-2 bg-white dark:bg-gray-900 shadow-lg z-40 transition-transform duration-300 transform translate-y-full">
+            <div class="container mx-auto max-w-5xl">
+                <div class="flex items-center">
+                    <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 mr-2">
+                        <div id="progressBar" class="animated-progress-bar h-4 rounded-full text-xs text-center text-white" style="width: 0%"></div>
+                    </div>
+                    <div id="progressPercentage" class="text-sm font-medium min-w-[40px] text-center">0%</div>
+                </div>
+                <div id="progressStatus" class="text-sm text-gray-600 dark:text-gray-400 mt-1">جاري التحليل...</div>
+            </div>
+        </div>
+        
+        <!-- PDF Preview -->
+        <div id="pdfPreviewContainer" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50 hidden">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-screen overflow-y-auto">
+                <div class="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center p-4 z-10">
+                    <h3 class="text-xl font-bold">معاينة التقرير</h3>
+                    <div>
+                        <button id="downloadPdfBtn" class="px-4 py-2 glowing-red-button rounded-md transition ml-2">تحميل PDF</button>
+                        <button id="closePdfPreview" class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition">إغلاق</button>
+                    </div>
+                </div>
+                <div id="pdfPreview" class="p-6">
+                    <!-- PDF content will be displayed here -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <footer class="mt-10 pt-6 border-t border-gray-300 dark:border-gray-700 text-center text-gray-600 dark:text-gray-400">
+            <p>تم تطويره من طرف الأستاذ العربي بودهير عبد اللطيف 2025</p>
+        </footer>
+    </div>
+
+    <script>
+        // Dark mode detection
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+
+        // Required for jsPDF
+        const { jsPDF } = window.jspdf;
+
+        // Global variables
+        let studentIdCounter = 1;
+        let barChart = null;
+        let pieChart = null;
+        let loadedExcelFile = null;
+        let excelSheets = [];
+        let activeSheetIndex = -1;
+        let excelWorkbook = null;
+        let originalWorkbook = null;
+        let totalAverage = 10; // Default threshold for above/below average
+        
+        // DOM Elements
+        const addStudentBtn = document.getElementById('addStudent');
+        const studentRows = document.getElementById('studentRows');
+        const analyzeBtn = document.getElementById('analyzeButton');
+        const analyzeLoader = document.getElementById('analyzeLoader');
+        const resultsSection = document.getElementById('resultsSection');
+        const excelFileInput = document.getElementById('excelFile');
+        const excelSectionsTabs = document.getElementById('excelSectionsTabs');
+        const missingDataSection = document.getElementById('missingDataSection');
+        const missingDataContent = document.getElementById('missingDataContent');
+        
+        // Progress Bar Elements
+        const progressBarContainer = document.getElementById('progressBarContainer');
+        const progressBar = document.getElementById('progressBar');
+        const progressPercentage = document.getElementById('progressPercentage');
+        const progressStatus = document.getElementById('progressStatus');
+
+        // Progress Bar Functions
+        function showProgressBar() {
+            progressBarContainer.classList.remove('transform', 'translate-y-full');
+            updateProgress(0, 'جاري بدء التحليل...');
+        }
+
+        function hideProgressBar() {
+            setTimeout(() => {
+                progressBarContainer.classList.add('transform', 'translate-y-full');
+            }, 1500);
+        }
+
+        function updateProgress(percent, status) {
+            progressBar.style.width = `${percent}%`;
+            progressPercentage.textContent = `${percent}%`;
+            if (status) {
+                progressStatus.textContent = status;
+            }
+        }
+        
+        // Add student row function
+        function addStudentRow() {
+            const newRow = document.createElement('tr');
+            newRow.className = 'border-b';
+            newRow.innerHTML = `
+                <td class="p-2 border">${studentIdCounter}</td>
+                <td class="p-2 border">
+                    <input type="text" class="student-id w-full px-2 py-1 text-base rounded bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600" placeholder="الرقم">
+                </td>
+                <td class="p-2 border">
+                    <input type="text" class="student-first-name w-full px-2 py-1 text-base rounded bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600" placeholder="الاسم">
+                </td>
+                <td class="p-2 border">
+                    <input type="text" class="student-last-name w-full px-2 py-1 text-base rounded bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600" placeholder="اللقب">
+                </td>
+                <td class="p-2 border">
+                    <input type="number" min="0" max="20" step="0.25" class="student-activities w-full px-2 py-1 text-base rounded bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600" placeholder="0-20">
+                </td>
+                <td class="p-2 border">
+                    <input type="number" min="0" max="20" step="0.25" class="student-exam w-full px-2 py-1 text-base rounded bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600" placeholder="0-20">
+                </td>
+                <td class="p-2 border">
+                    <input type="number" min="0" max="20" step="0.25" class="student-test w-full px-2 py-1 text-base rounded bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600" placeholder="0-20">
+                </td>
+                <td class="p-2 border">
+                    <button class="delete-student px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition">حذف</button>
+                </td>
+            `;
+            
+            studentRows.appendChild(newRow);
+            
+            // Add event listener to delete button
+            const deleteBtn = newRow.querySelector('.delete-student');
+            deleteBtn.addEventListener('click', () => {
+                newRow.remove();
+                // Update student row numbers
+                updateStudentRowNumbers();
+            });
+            
+            studentIdCounter++;
+        }
+        
+        // Update student row numbers
+        function updateStudentRowNumbers() {
+            const rows = studentRows.querySelectorAll('tr');
+            rows.forEach((row, index) => {
+                row.cells[0].textContent = index + 1;
+            });
+            studentIdCounter = rows.length + 1;
+        }
+        
+        // Calculate final grade
+        function calculateFinalGrade(activities, exam, test) {
+            return (((parseFloat(activities) + parseFloat(exam)) / 2) + parseFloat(test) * 2) / 3;
+        }
+        
+        // Classify grade based on value
+        function classifyGrade(grade) {
+            if (grade < 8) {
+                return document.getElementById('comment0').value;
+            } else if (grade < 10) {
+                return document.getElementById('comment1').value;
+            } else if (grade < 12) {
+                return document.getElementById('comment2').value;
+            } else if (grade < 14) {
+                return document.getElementById('comment3').value;
+            } else if (grade < 16) {
+                return document.getElementById('comment4').value;
+            } else if (grade < 18) {
+                return document.getElementById('comment5').value;
+            } else {
+                return document.getElementById('comment6').value;
+            }
+        }
+        
+        // Process student data and analyze grades - Now with progress bar
+        async function analyzeGrades() {
+            console.log("Analyze button clicked");
+            const rows = studentRows.querySelectorAll('tr');
+            if (rows.length === 0) {
+                showNotification('يرجى إضافة تلاميذ أولاً', 'error');
+                return;
+            }
+            
+            // Show loading indicator and progress bar
+            analyzeLoader.classList.remove('hidden');
+            showProgressBar();
+            
+            // Get class name
+            const className = document.getElementById('className').value || 'القسم';
+            
+            // Use setTimeout to allow UI to update before processing
+            setTimeout(() => {
+                processGradesWithProgress(rows, className);
+            }, 100);
+        }
+
+        // Separate function for processing grades with progress updates
+        async function processGradesWithProgress(rows, className) {
+            try {
+                updateProgress(5, 'جاري تجهيز بيانات التلاميذ...');
+                
+                // Process student data 
+                const students = [];
+                const absentStudents = [];
+                const missingDataStudents = [];
+                
+                const totalRows = rows.length;
+                
+                // Process rows in batches for better performance
+                const batchSize = 10;
+                const batches = Math.ceil(totalRows / batchSize);
+                
+                for (let batchIndex = 0; batchIndex < batches; batchIndex++) {
+                    const startIndex = batchIndex * batchSize;
+                    const endIndex = Math.min(startIndex + batchSize, totalRows);
+                    
+                    // Process a batch of rows
+                    for (let i = startIndex; i < endIndex; i++) {
+                        const row = rows[i];
+                        
+                        const studentId = row.querySelector('.student-id').value;
+                        const firstName = row.querySelector('.student-first-name').value;
+                        const lastName = row.querySelector('.student-last-name').value;
+                        const activitiesInput = row.querySelector('.student-activities');
+                        const examInput = row.querySelector('.student-exam');
+                        const testInput = row.querySelector('.student-test');
+                        
+                        // Get exact missing input information
+                        const missingFields = [];
+                        
+                        if (!activitiesInput.value) {
+                            missingFields.push({
+                                name: 'النشاطات',
+                                id: activitiesInput.id || 'نشاطات' + studentIdCounter
+                            });
+                        }
+                        
+                        if (!examInput.value) {
+                            missingFields.push({
+                                name: 'الفرض',
+                                id: examInput.id || 'فرض' + studentIdCounter
+                            });
+                        }
+                        
+                        if (!testInput.value) {
+                            missingFields.push({
+                                name: 'الاختبار',
+                                id: testInput.id || 'اختبار' + studentIdCounter
+                            });
+                        }
+                        
+                        const activities = parseFloat(activitiesInput.value);
+                        const exam = parseFloat(examInput.value);
+                        const test = parseFloat(testInput.value);
+                        
+                        if (!firstName && !lastName) {
+                            continue; // Skip completely empty rows
+                        }
+                        
+                        // Check for missing data
+                        const hasMissingData = isNaN(activities) || isNaN(exam) || isNaN(test);
+                        
+                        // Calculate final grade with available data (or 0 if missing)
+                        const activitiesValue = isNaN(activities) ? 0 : activities;
+                        const examValue = isNaN(exam) ? 0 : exam;
+                        const testValue = isNaN(test) ? 0 : test;
+                        
+                        const finalGrade = calculateFinalGrade(activitiesValue, examValue, testValue);
+                        const gradeComment = classifyGrade(finalGrade);
+                        
+                        const studentInfo = {
+                            id: studentId || `طالب ${students.length + absentStudents.length + 1}`,
+                            firstName: firstName || '',
+                            lastName: lastName || '',
+                            activities: activitiesValue,
+                            exam: examValue,
+                            test: testValue,
+                            hasMissingData,
+                            missingFields,
+                            finalGrade,
+                            gradeComment,
+                            rowIndex: i + 9 // Add row index for Excel mapping (starting from row 9)
+                        };
+                        
+                        // Check if student should be considered absent (all grades are 0)
+                        if (activitiesValue === 0 && examValue === 0 && testValue === 0) {
+                            absentStudents.push(studentInfo);
+                        } else if (hasMissingData) {
+                            // Add to main analysis but also track as having missing data
+                            students.push(studentInfo);
+                            missingDataStudents.push(studentInfo);
+                        } else {
+                            // Regular student with complete data
+                            students.push(studentInfo);
+                        }
+                    }
+                    
+                    // Update progress after each batch
+                    const batchProgress = 5 + Math.floor((batchIndex + 1) / batches * 25);
+                    updateProgress(batchProgress, `جاري تحليل بيانات التلاميذ... (${Math.min(endIndex, totalRows)}/${totalRows})`);
+                    
+                    // Allow UI to update
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                }
+                
+                if (students.length === 0 && absentStudents.length === 0) {
+                    showNotification('لا توجد بيانات صالحة للتحليل', 'error');
+                    analyzeLoader.classList.add('hidden');
+                    hideProgressBar();
+                    return;
+                }
+                
+                updateProgress(30, 'جاري حساب الإحصائيات...');
+                
+                // Allow UI to update
+                await new Promise(resolve => setTimeout(resolve, 0));
+                
+                // Sort students by final grade (descending)
+                students.sort((a, b) => b.finalGrade - a.finalGrade);
+                
+                // Calculate statistics
+                const totalStudents = students.length;
+                const averageGrade = students.length > 0 ? 
+                    students.reduce((sum, student) => sum + student.finalGrade, 0) / totalStudents : 0;
+                totalAverage = averageGrade; // Set global average
+                const passingStudents = students.filter(student => student.finalGrade >= 10);
+                const passRate = students.length > 0 ? (passingStudents.length / totalStudents) * 100 : 0;
+                
+                updateProgress(40, 'جاري تحديث الإحصائيات...');
+                
+                // Update summary statistics
+                document.getElementById('totalStudents').textContent = totalStudents;
+                document.getElementById('averageGrade').textContent = averageGrade.toFixed(2);
+                document.getElementById('passRate').textContent = `${passRate.toFixed(2)}%`;
+                
+                // Only show highest and lowest if we have students
+                if (students.length > 0) {
+                    document.getElementById('highestGrade').textContent = students[0].finalGrade.toFixed(2);
+                    document.getElementById('lowestGrade').textContent = students[students.length - 1].finalGrade.toFixed(2);
+                } else {
+                    document.getElementById('highestGrade').textContent = '-';
+                    document.getElementById('lowestGrade').textContent = '-';
+                }
+                
+                document.getElementById('passingCount').textContent = `${passingStudents.length} (${passRate.toFixed(0)}%)`;
+                
+                updateProgress(50, 'جاري إنشاء تقارير المعلومات الناقصة...');
+                
+                // Display missing data section if needed
+                missingDataSection.classList.add('hidden');
+                if (absentStudents.length > 0 || missingDataStudents.length > 0) {
+                    missingDataContent.innerHTML = '';
+                    
+                    if (absentStudents.length > 0) {
+                        const absentList = document.createElement('div');
+                        absentList.className = 'mb-3';
+                        absentList.innerHTML = `
+                            <h4 class="font-medium mb-1">تلاميذ في حالة غياب (${absentStudents.length}):</h4>
+                            <ul class="list-disc mr-5 space-y-1">
+                                ${absentStudents.map(student => 
+                                    `<li>${student.firstName} ${student.lastName} (${student.id})</li>`
+                                ).join('')}
+                            </ul>
+                        `;
+                        missingDataContent.appendChild(absentList);
+                    }
+                    
+                    if (missingDataStudents.length > 0) {
+                        const missingList = document.createElement('div');
+                        missingList.innerHTML = `
+                            <h4 class="font-medium mb-1">تلاميذ بنقاط غير مكتملة (${missingDataStudents.length}):</h4>
+                            <ul class="list-disc mr-5 space-y-1">
+                                ${missingDataStudents.map(student => {
+                                    const details = student.missingFields.map(field => 
+                                        `<span class="inline-block px-2 py-1 bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 rounded text-xs mr-1">${field.name}</span>`
+                                    ).join(' ');
+                                    
+                                    return `<li>${student.firstName} ${student.lastName} (${student.id}) - ينقصه: ${details}</li>`;
+                                }).join('')}
+                            </ul>
+                        `;
+                        missingDataContent.appendChild(missingList);
+                    }
+                    
+                    missingDataSection.classList.remove('hidden');
+                }
+                
+                updateProgress(60, 'جاري إنشاء توزيع التقديرات...');
+                
+                // Create grade distribution for charts
+                const gradeDistribution = {};
+                students.forEach(student => {
+                    if (!gradeDistribution[student.gradeComment]) {
+                        gradeDistribution[student.gradeComment] = 0;
+                    }
+                    gradeDistribution[student.gradeComment]++;
+                });
+                
+                updateProgress(70, 'جاري تحديث جداول النتائج...');
+                
+                // Update results table
+                const resultsTable = document.getElementById('resultsTable');
+                resultsTable.innerHTML = '';
+                
+                // Use document fragment for better performance
+                const fragment = document.createDocumentFragment();
+                
+                students.forEach((student, index) => {
+                    const row = document.createElement('tr');
+                    row.className = 'border-b';
+                    
+                    // Compare to average
+                    const isAboveAverage = student.finalGrade >= totalAverage;
+                    const statusClass = isAboveAverage ? 'text-algerian-green dark:text-green-400' : 'text-algerian-red dark:text-red-400';
+                    const statusText = isAboveAverage ? 'فوق المعدل' : 'تحت المعدل';
+                    
+                    // Add warning icon for students with missing data
+                    const missingDataIndicator = student.hasMissingData ? 
+                        `<span class="mr-1 text-yellow-600 dark:text-yellow-400" title="بيانات غير مكتملة">⚠️</span>` : '';
+                    
+                    row.innerHTML = `
+                        <td class="p-2 border">${index + 1}</td>
+                        <td class="p-2 border">${student.firstName} ${student.lastName} ${missingDataIndicator}</td>
+                        <td class="p-2 border font-medium ${student.finalGrade >= 10 ? '' : 'text-algerian-red dark:text-red-400'}">${student.finalGrade.toFixed(2)}</td>
+                        <td class="p-2 border">${student.gradeComment}</td>
+                        <td class="p-2 border font-medium ${statusClass}">${statusText}</td>
+                    `;
+                    
+                    fragment.appendChild(row);
+                });
+                
+                resultsTable.appendChild(fragment);
+                
+                updateProgress(80, 'جاري تحديث بيانات أفضل التلاميذ...');
+                
+                // Update top students section
+                const topStudents = document.getElementById('topStudents');
+                topStudents.innerHTML = '';
+                
+                // Show top 3 students (or all if less than 3)
+                const topCount = Math.min(3, students.length);
+                const topFragment = document.createDocumentFragment();
+                
+                for (let i = 0; i < topCount; i++) {
+                    const student = students[i];
+                    const studentCard = document.createElement('div');
+                    studentCard.className = 'bg-gray-100 dark:bg-gray-700 p-4 rounded-lg';
+                    
+                    studentCard.innerHTML = `
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <h4 class="font-medium">${student.firstName} ${student.lastName}</h4>
+                                <p class="text-sm text-gray-600 dark:text-gray-400">${student.id}</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-xl font-bold text-algerian-green">${student.finalGrade.toFixed(2)}</p>
+                                <p class="text-sm">${student.gradeComment}</p>
+                            </div>
+                        </div>
+                    `;
+                    
+                    topFragment.appendChild(studentCard);
+                }
+                
+                topStudents.appendChild(topFragment);
+                
+                updateProgress(90, 'جاري إنشاء الرسوم البيانية...');
+                
+                // Allow UI to update
+                await new Promise(resolve => setTimeout(resolve, 0));
+                
+                // Create charts
+                createCharts(gradeDistribution, className);
+                
+                updateProgress(95, 'جاري تحديث ملف Excel...');
+                
+                // Update Excel with calculated grades if available
+                if (excelWorkbook && activeSheetIndex >= 0) {
+                    addCommentsToExcel(students, absentStudents);
+                }
+                
+                // Show results section
+                resultsSection.classList.remove('hidden');
+                
+                // Complete the progress
+                updateProgress(100, 'اكتمل التحليل بنجاح!');
+                
+                // Hide loading indicator
+                analyzeLoader.classList.add('hidden');
+                
+                // Hide progress bar after a delay
+                setTimeout(() => {
+                    hideProgressBar();
+                }, 1000);
+                
+                // Scroll to results
+                resultsSection.scrollIntoView({ behavior: 'smooth' });
+                
+            } catch (error) {
+                console.error("Error in analysis:", error);
+                showNotification('حدث خطأ أثناء تحليل البيانات: ' + error.message, 'error');
+                analyzeLoader.classList.add('hidden');
+                hideProgressBar();
+            }
+        }
+        
+        // Create charts function
+        function createCharts(gradeDistribution, className) {
+            const labels = Object.keys(gradeDistribution);
+            const data = Object.values(gradeDistribution);
+            const colors = generateChartColors(labels.length);
+            
+            // Bar Chart
+            const barCtx = document.getElementById('barChart').getContext('2d');
+            if (barChart) {
+                barChart.destroy();
+            }
+            
+            barChart = new Chart(barCtx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'عدد التلاميذ',
+                        data: data,
+                        backgroundColor: colors,
+                        borderColor: colors.map(color => color.replace('0.7', '1')),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `توزيع التقديرات لقسم ${className}`,
+                            font: {
+                                size: 16
+                            }
+                        },
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                precision: 0
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Pie Chart
+            const pieCtx = document.getElementById('pieChart').getContext('2d');
+            if (pieChart) {
+                pieChart.destroy();
+            }
+            
+            pieChart = new Chart(pieCtx, {
+                type: 'pie',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: colors,
+                        borderColor: colors.map(color => color.replace('0.7', '1')),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `نسب التقديرات لقسم ${className}`,
+                            font: {
+                                size: 16
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Generate chart colors using Algerian flag colors
+        function generateChartColors(count) {
+            const baseColors = [
+                'rgba(0, 143, 57, 0.7)',    // Algerian Green
+                'rgba(210, 16, 52, 0.7)',   // Algerian Red
+                'rgba(37, 99, 235, 0.7)',   // Blue
+                'rgba(234, 179, 8, 0.7)',   // Yellow
+                'rgba(124, 58, 237, 0.7)',  // Purple
+                'rgba(251, 146, 60, 0.7)',  // Orange
+                'rgba(20, 184, 166, 0.7)',  // Teal
+            ];
+            
+            // If we need more colors than our base set, generate additional ones
+            if (count <= baseColors.length) {
+                return baseColors.slice(0, count);
+            }
+            
+            const colors = [...baseColors];
+            for (let i = baseColors.length; i < count; i++) {
+                const r = Math.floor(Math.random() * 255);
+                const g = Math.floor(Math.random() * 255);
+                const b = Math.floor(Math.random() * 255);
+                colors.push(`rgba(${r}, ${g}, ${b}, 0.7)`);
+            }
+            
+            return colors;
+        }
+        
+        // Process Excel file
+        function processExcelFile(file) {
+            analyzeLoader.classList.remove('hidden');
+            showProgressBar();
+            updateProgress(0, 'جاري تحميل ملف Excel...');
+            
+            loadedExcelFile = file;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    updateProgress(30, 'جاري تحليل ملف Excel...');
+                    
+                    const data = new Uint8Array(e.target.result);
+                    excelWorkbook = XLSX.read(data, { type: 'array' });
+                    originalWorkbook = XLSX.read(data, { type: 'array' }); // Keep a copy of the original workbook
+                    
+                    updateProgress(60, 'جاري استخراج البيانات من الصفحات...');
+                    
+                    // Store all sheets that have enough rows (potentially containing data)
+                    excelSheets = excelWorkbook.SheetNames.map((sheetName, index) => {
+                        const worksheet = excelWorkbook.Sheets[sheetName];
+                        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+                        
+                        return {
+                            index,
+                            name: sheetName,
+                            worksheet,
+                            jsonData,
+                            rowCount: jsonData.length
+                        };
+                    }).filter(sheet => sheet.rowCount >= 5); // Only sheets with at least 5 rows
+                    
+                    updateProgress(80, 'جاري تحديث واجهة المستخدم...');
+                    
+                    // If we found valid sheets, show section tabs
+                    if (excelSheets.length > 0) {
+                        // Clear existing tabs
+                        const tabsContainer = excelSectionsTabs.querySelector('div');
+                        tabsContainer.innerHTML = '';
+                        
+                        // Add tabs for each sheet
+                        excelSheets.forEach((sheet, index) => {
+                            const tab = document.createElement('button');
+                            tab.className = 'section-tab px-4 py-2 mr-2 rounded-t-lg border-t border-r border-l border-gray-300 dark:border-gray-600 text-sm whitespace-nowrap';
+                            tab.textContent = sheet.name;
+                            tab.dataset.index = index;
+                            
+                            tab.addEventListener('click', function() {
+                                selectExcelSheet(index);
+                            });
+                            
+                            tabsContainer.appendChild(tab);
+                        });
+                        
+                        // Show the tabs container
+                        excelSectionsTabs.classList.remove('hidden');
+                        
+                        updateProgress(90, 'جاري تحميل البيانات الأولى...');
+                        
+                        // Select the first sheet by default
+                        setTimeout(() => {
+                            selectExcelSheet(0);
+                            updateProgress(100, 'تم تحميل الملف بنجاح!');
+                            setTimeout(() => {
+                                hideProgressBar();
+                            }, 1000);
+                        }, 100);
+                        
+                    } else {
+                        showNotification('لم يتم العثور على بيانات صالحة في الملف', 'error');
+                        analyzeLoader.classList.add('hidden');
+                        hideProgressBar();
+                    }
+                } catch (error) {
+                    console.error('Error processing Excel file:', error);
+                    showNotification(`حدث خطأ أثناء معالجة الملف: ${error.message}`, 'error');
+                    analyzeLoader.classList.add('hidden');
+                    hideProgressBar();
+                }
+            };
+            
+            reader.onerror = function() {
+                console.error('Error reading file');
+                analyzeLoader.classList.add('hidden');
+                showNotification('حدث خطأ أثناء قراءة الملف', 'error');
+                hideProgressBar();
+            };
+            
+            reader.readAsArrayBuffer(file);
+        }
+        
+        // Select and load a specific Excel sheet
+        function selectExcelSheet(index) {
+            if (index < 0 || index >= excelSheets.length) {
+                return;
+            }
+            
+            // Show loading indicator and progress bar
+            analyzeLoader.classList.remove('hidden');
+            showProgressBar();
+            updateProgress(0, 'جاري تحميل بيانات الصفحة...');
+            
+            // Update active tab styling
+            const tabs = excelSectionsTabs.querySelectorAll('.section-tab');
+            tabs.forEach(tab => {
+                tab.classList.remove('active');
+                if (parseInt(tab.dataset.index) === index) {
+                    tab.classList.add('active');
+                }
+            });
+            
+            // Set active sheet
+            activeSheetIndex = index;
+            const sheetData = excelSheets[index];
+            
+            // Update info text
+            document.getElementById('currentSheetInfo').textContent = `القسم المحدد: ${sheetData.name} (${sheetData.rowCount} صفوف)`;
+            
+            // Clear existing data
+            studentRows.innerHTML = '';
+            studentIdCounter = 1;
+            
+            // Update class name
+            document.getElementById('className').value = sheetData.name;
+            
+            updateProgress(30, 'جاري تحليل بيانات الصفحة...');
+            
+            // Process sheet data with web worker-like approach
+            setTimeout(() => {
+                try {
+                    const jsonData = sheetData.jsonData;
+                    
+                    updateProgress(40, 'جاري البحث عن الترويسة...');
+                    
+                    // Find header row
+                    let headerRowIndex = -1;
+                    
+                    // Try to find the header row (looking for key column labels)
+                    for (let i = 0; i < Math.min(15, jsonData.length); i++) {
+                        const row = jsonData[i];
+                        if (!row) continue;
+                        
+                        // Convert row to string to check for header keywords
+                        const rowText = row.join(' ').toLowerCase();
+                        if (rowText.includes('رقم') || 
+                            rowText.includes('اسم') || 
+                            rowText.includes('لقب') ||
+                            rowText.includes('نشاط') ||
+                            rowText.includes('فرض') ||
+                            rowText.includes('اختبار')) {
+                            headerRowIndex = i;
+                            break;
+                        }
+                    }
+                    
+                    // If header not found, try row 7 as default (typical in some Excel templates)
+                    if (headerRowIndex === -1 && jsonData.length > 7) {
+                        headerRowIndex = 7;
+                    }
+                    
+                    if (headerRowIndex === -1) {
+                        showNotification(`لم يتم العثور على صف العناوين في قسم ${sheetData.name}`, 'warning');
+                        analyzeLoader.classList.add('hidden');
+                        hideProgressBar();
+                        return;
+                    }
+                    
+                    updateProgress(50, 'جاري استخراج بيانات العمودة...');
+                    
+                    const headers = jsonData[headerRowIndex] || [];
+                    
+                    // Find column indexes
+                    let idColumnIndex = -1;
+                    let firstNameColumnIndex = -1;
+                    let lastNameColumnIndex = -1;
+                    let activitiesColumnIndex = -1;
+                    let examColumnIndex = -1;
+                    let testColumnIndex = -1;
+                    
+                    // Try to find the columns
+                    headers.forEach((header, index) => {
+                        if (!header) return;
+                        
+                        const headerStr = String(header).replace(/\s+/g, '').replace('/', '_').toLowerCase();
+                        
+                        if (headerStr.includes('رقم') || headerStr.includes('تعريف') || headerStr.includes('id')) {
+                            idColumnIndex = index;
+                        } else if (headerStr.includes('اسم') && !headerStr.includes('لقب')) {
+                            firstNameColumnIndex = index;
+                        } else if (headerStr.includes('لقب')) {
+                            lastNameColumnIndex = index;
+                        } else if (headerStr.includes('تقويم') || headerStr.includes('نشاط') || headerStr.includes('activities')) {
+                            activitiesColumnIndex = index;
+                        } else if (headerStr.includes('فرض') || headerStr.includes('exam')) {
+                            examColumnIndex = index;
+                        } else if (headerStr.includes('اختبار') || headerStr.includes('test')) {
+                            testColumnIndex = index;
+                        }
+                    });
+                    
+                    // Use fallback column mapping if needed
+                    if (firstNameColumnIndex === -1) firstNameColumnIndex = 0;
+                    if (lastNameColumnIndex === -1) lastNameColumnIndex = 1;
+                    if (idColumnIndex === -1) idColumnIndex = 2;
+                    if (activitiesColumnIndex === -1) activitiesColumnIndex = 3;
+                    if (examColumnIndex === -1) examColumnIndex = 4;
+                    if (testColumnIndex === -1) testColumnIndex = 5;
+                    
+                    updateProgress(60, 'جاري استيراد بيانات التلاميذ...');
+                    
+                    // Create a document fragment for better performance
+                    const fragment = document.createDocumentFragment();
+                    let studentsAdded = 0;
+                    
+                    // Process in batches
+                    const processDataBatch = (startRow, batchSize) => {
+                        const endRow = Math.min(startRow + batchSize, jsonData.length);
+                        const rowFragment = document.createDocumentFragment();
+                        
+                        for (let i = startRow; i < endRow; i++) {
+                            const row = jsonData[i];
+                            if (!row || row.length === 0 || !row.some(cell => cell)) {
+                                continue; // Skip empty rows
+                            }
+                            
+                            // Skip header row
+                            if (i <= headerRowIndex) {
+                                continue;
+                            }
+                            
+                            // Get student data
+                            const id = row[idColumnIndex] || '';
+                            const firstName = row[firstNameColumnIndex] || '';
+                            const lastName = row[lastNameColumnIndex] || '';
+                            
+                            // Parse numeric values, handle non-numeric values
+                            let activities = '';
+                            let exam = '';
+                            let test = '';
+                            
+                            if (row[activitiesColumnIndex] !== undefined) {
+                                const val = parseFloat(row[activitiesColumnIndex]);
+                                activities = isNaN(val) ? '' : val;
+                            }
+                            
+                            if (row[examColumnIndex] !== undefined) {
+                                const val = parseFloat(row[examColumnIndex]);
+                                exam = isNaN(val) ? '' : val;
+                            }
+                            
+                            if (row[testColumnIndex] !== undefined) {
+                                const val = parseFloat(row[testColumnIndex]);
+                                test = isNaN(val) ? '' : val;
+                            }
+                            
+                            // Only add students with at least name data
+                            if (firstName || lastName) {
+                                const newRow = document.createElement('tr');
+                                newRow.className = 'border-b';
+                                newRow.innerHTML = `
+                                    <td class="p-2 border">${studentIdCounter}</td>
+                                    <td class="p-2 border">
+                                        <input type="text" class="student-id w-full px-2 py-1 text-base rounded bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600" value="${id}">
+                                    </td>
+                                    <td class="p-2 border">
+                                        <input type="text" class="student-first-name w-full px-2 py-1 text-base rounded bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600" value="${firstName}">
+                                    </td>
+                                    <td class="p-2 border">
+                                        <input type="text" class="student-last-name w-full px-2 py-1 text-base rounded bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600" value="${lastName}">
+                                    </td>
+                                    <td class="p-2 border">
+                                        <input type="number" min="0" max="20" step="0.25" class="student-activities w-full px-2 py-1 text-base rounded bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600" value="${activities}">
+                                    </td>
+                                    <td class="p-2 border">
+                                        <input type="number" min="0" max="20" step="0.25" class="student-exam w-full px-2 py-1 text-base rounded bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600" value="${exam}">
+                                    </td>
+                                    <td class="p-2 border">
+                                        <input type="number" min="0" max="20" step="0.25" class="student-test w-full px-2 py-1 text-base rounded bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600" value="${test}">
+                                    </td>
+                                    <td class="p-2 border">
+                                        <button class="delete-student px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition">حذف</button>
+                                    </td>
+                                `;
+                                
+                                rowFragment.appendChild(newRow);
+                                
+                                studentIdCounter++;
+                                studentsAdded++;
+                            }
+                        }
+                        
+                        fragment.appendChild(rowFragment);
+                        
+                        // Update progress
+                        const progress = 60 + Math.floor((endRow / jsonData.length) * 30);
+                        updateProgress(progress, `جاري استيراد بيانات التلاميذ (${Math.min(endRow, jsonData.length)}/${jsonData.length})...`);
+                        
+                        if (endRow < jsonData.length) {
+                            // Process next batch
+                            setTimeout(() => {
+                                processDataBatch(endRow, batchSize);
+                            }, 0);
+                        } else {
+                            // All data processed
+                            studentRows.appendChild(fragment);
+                            
+                            // Add event listeners to delete buttons
+                            const deleteButtons = studentRows.querySelectorAll('.delete-student');
+                            deleteButtons.forEach(btn => {
+                                btn.addEventListener('click', () => {
+                                    const row = btn.closest('tr');
+                                    row.remove();
+                                    updateStudentRowNumbers();
+                                });
+                            });
+                            
+                            // Update sheet data
+                            sheetData.studentsImported = studentsAdded;
+                            
+                            // Hide loading indicator
+                            analyzeLoader.classList.add('hidden');
+                            
+                            updateProgress(100, 'تم استيراد البيانات بنجاح!');
+                            setTimeout(() => {
+                                hideProgressBar();
+                            }, 1000);
+                            
+                            if (studentsAdded > 0) {
+                                showNotification(`تم استيراد ${studentsAdded} تلميذ من قسم ${sheetData.name}`, 'success');
+                            } else {
+                                showNotification(`لم يتم العثور على بيانات تلاميذ في قسم ${sheetData.name}`, 'warning');
+                            }
+                        }
+                    };
+                    
+                    // Start batch processing
+                    const batchSize = 20; // Process 20 rows at a time
+                    processDataBatch(headerRowIndex + 1, batchSize);
+                    
+                } catch (error) {
+                    console.error('Error in selectExcelSheet:', error);
+                    showNotification(`حدث خطأ أثناء تحميل بيانات الصفحة: ${error.message}`, 'error');
+                    analyzeLoader.classList.add('hidden');
+                    hideProgressBar();
+                }
+            }, 100);
+        }
+        
+        // Add comments to Excel file (specifically at column H, starting from row 9)
+        function addCommentsToExcel(students, absentStudents) {
+            if (activeSheetIndex < 0 || !excelSheets[activeSheetIndex]) {
+                return;
+            }
+            
+            try {
+                // Get active sheet info
+                const sheetData = excelSheets[activeSheetIndex];
+                const sheetName = sheetData.name;
+                
+                // We need to work with the original workbook (not excelWorkbook), to preserve original data
+                const worksheet = originalWorkbook.Sheets[sheetName];
+                
+                if (!worksheet) {
+                    console.error('Worksheet not found:', sheetName);
+                    return;
+                }
+                
+                // Add grade comments to cells in column H starting from row 9
+                // This approach matches the Python code in main.py which uses:
+                // cell_position = f"H{index + 9}"
+                // sheet[cell_position].value = row["التقدير"]
+                
+                const allStudents = [...students, ...absentStudents];
+                
+                for (const student of allStudents) {
+                    // Calculate the correct cell reference for column H based on the original row index
+                    // In the Python code, it uses index + 9, so we do the same here
+                    // Make sure student has the correct rowIndex property
+                    let cellRowIndex = student.rowIndex || 9;
+                    const cellRef = 'H' + cellRowIndex;
+                    
+                    // Only update column H with grade comments without modifying any other data
+                    if (!worksheet[cellRef]) {
+                        // Create cell if it doesn't exist
+                        worksheet[cellRef] = { 
+                            t: 's',  // string type
+                            v: student.gradeComment // value
+                        };
+                    } else {
+                        // Update existing cell
+                        worksheet[cellRef].t = 's';
+                        worksheet[cellRef].v = student.gradeComment;
+                    }
+                }
+                
+                // Ensure the worksheet range includes column H
+                const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1:A1');
+                const hCol = XLSX.utils.decode_col('H');
+                if (hCol > range.e.c) {
+                    range.e.c = hCol;
+                    worksheet['!ref'] = XLSX.utils.encode_range(range);
+                }
+                
+                console.log('Excel workbook successfully updated with grade comments in column H');
+            } catch (error) {
+                console.error('Error updating Excel workbook:', error);
+                showNotification('حدث خطأ أثناء تحديث ملف Excel بالتقديرات', 'error');
+            }
+        }
+        
+        // Export to Excel (Download the original Excel with added comments)
+        function exportExcel() {
+            // Show loading animation
+            const exportBtn = document.getElementById('exportExcelButton');
+            exportBtn.disabled = true;
+            exportBtn.innerHTML = '<span>جاري التصدير...</span><span class="loader mr-3 inline-block w-4 h-4 border-2 border-gray-300 border-t-2 rounded-full"></span>';
+            
+            try {
+                if (!originalWorkbook) {
+                    showNotification('لم يتم العثور على ملف Excel. يرجى رفع ملف أولاً وتحليل النتائج.', 'error');
+                    exportBtn.disabled = false;
+                    exportBtn.innerHTML = '<span>تحميل ملف Excel</span>';
+                    return;
+                }
+                
+                // Get class name for filename
+                const className = document.getElementById('className').value || 'القسم';
+                
+                // Show progress
+                showProgressBar();
+                updateProgress(25, 'جاري إعداد ملف Excel...');
+                
+                setTimeout(() => {
+                    try {
+                        // Write the original workbook with added comments to a new Excel file
+                        // This preserves all the original formatting and data, with only column H updated
+                        updateProgress(60, 'جاري إنشاء ملف Excel...');
+                        
+                        const excelBuffer = XLSX.write(originalWorkbook, { bookType: 'xlsx', type: 'array' });
+                        const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                        
+                        updateProgress(90, 'جاري تحميل الملف...');
+                        
+                        const url = URL.createObjectURL(blob);
+                        
+                        // Create link and trigger download
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `نتائج_${className}_${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                        
+                        updateProgress(100, 'تم تحميل ملف Excel بنجاح!');
+                        
+                        setTimeout(() => {
+                            hideProgressBar();
+                        }, 1000);
+                        
+                        showNotification('تم تحميل ملف Excel مع إضافة التقديرات في العمود H بنجاح', 'success');
+                    } catch (error) {
+                        console.error('Error in Excel export:', error);
+                        showNotification('حدث خطأ أثناء تصدير ملف Excel: ' + error.message, 'error');
+                        hideProgressBar();
+                    }
+                    
+                    // Reset button state
+                    exportBtn.disabled = false;
+                    exportBtn.innerHTML = '<span>تحميل ملف Excel</span>';
+                }, 100);
+                
+            } catch (error) {
+                console.error('Error exporting Excel file:', error);
+                showNotification('حدث خطأ أثناء تصدير ملف Excel: ' + error.message, 'error');
+                exportBtn.disabled = false;
+                exportBtn.innerHTML = '<span>تحميل ملف Excel</span>';
+                hideProgressBar();
+            }
+        }
+        
+        // Export to PDF
+        function exportPdf() {
+            const className = document.getElementById('className').value || 'القسم';
+            const rows = studentRows.querySelectorAll('tr');
+            if (rows.length === 0) {
+                showNotification('يرجى إضافة تلاميذ أولاً قبل التصدير', 'error');
+                return;
+            }
+            
+            // Show loading animation
+            const exportBtn = document.getElementById('exportPdfButton');
+            exportBtn.disabled = true;
+            exportBtn.innerHTML = '<span>جاري التحميل...</span><span class="loader mr-3 inline-block w-4 h-4 border-2 border-gray-300 border-t-2 rounded-full"></span>';
+            
+            // Get PDF preview container and prepare content
+            const pdfPreview = document.getElementById('pdfPreview');
+            
+            // Show progress
+            showProgressBar();
+            updateProgress(10, 'جاري جمع بيانات التلاميذ...');
+            
+            setTimeout(() => {
+                try {
+                    // Process student data
+                    const students = [];
+                    const absentStudents = [];
+                    const missingDataStudents = [];
+                    
+                    rows.forEach((row, index) => {
+                        const studentId = row.querySelector('.student-id').value;
+                        const firstName = row.querySelector('.student-first-name').value;
+                        const lastName = row.querySelector('.student-last-name').value;
+                        const activitiesInput = row.querySelector('.student-activities');
+                        const examInput = row.querySelector('.student-exam');
+                        const testInput = row.querySelector('.student-test');
+                        
+                        // Get exact missing input information
+                        const missingFields = [];
+                        
+                        if (!activitiesInput.value) {
+                            missingFields.push({
+                                name: 'النشاطات',
+                                id: activitiesInput.id || 'نشاطات' + studentIdCounter
+                            });
+                        }
+                        
+                        if (!examInput.value) {
+                            missingFields.push({
+                                name: 'الفرض',
+                                id: examInput.id || 'فرض' + studentIdCounter
+                            });
+                        }
+                        
+                        if (!testInput.value) {
+                            missingFields.push({
+                                name: 'الاختبار',
+                                id: testInput.id || 'اختبار' + studentIdCounter
+                            });
+                        }
+                        
+                        const activities = parseFloat(activitiesInput.value);
+                        const exam = parseFloat(examInput.value);
+                        const test = parseFloat(testInput.value);
+                        
+                        if (!firstName && !lastName) {
+                            return; // Skip completely empty rows
+                        }
+                        
+                        // Check for missing data
+                        const hasMissingData = isNaN(activities) || isNaN(exam) || isNaN(test);
+                        
+                        // Calculate final grade with available data (or 0 if missing)
+                        const activitiesValue = isNaN(activities) ? 0 : activities;
+                        const examValue = isNaN(exam) ? 0 : exam;
+                        const testValue = isNaN(test) ? 0 : test;
+                        
+                        const finalGrade = calculateFinalGrade(activitiesValue, examValue, testValue);
+                        const gradeComment = classifyGrade(finalGrade);
+                        
+                        const studentInfo = {
+                            id: studentId || `طالب ${students.length + absentStudents.length + 1}`,
+                            firstName: firstName || '',
+                            lastName: lastName || '',
+                            activities: activitiesValue,
+                            exam: examValue,
+                            test: testValue,
+                            hasMissingData,
+                            missingFields,
+                            finalGrade,
+                            gradeComment,
+                            status: finalGrade >= totalAverage ? 'فوق المعدل' : 'تحت المعدل',
+                            rowIndex: index + 9 // Store the row index for Excel mapping
+                        };
+                        
+                        // Check if student should be considered absent (all grades are 0)
+                        if (activitiesValue === 0 && examValue === 0 && testValue === 0) {
+                            absentStudents.push(studentInfo);
+                        } else if (hasMissingData) {
+                            // Add to main analysis but also track as having missing data
+                            students.push(studentInfo);
+                            missingDataStudents.push(studentInfo);
+                        } else {
+                            // Regular student with complete data
+                            students.push(studentInfo);
+                        }
+                    });
+                    
+                    updateProgress(30, 'جاري حساب الإحصائيات...');
+                    
+                    // Sort students by final grade (descending)
+                    students.sort((a, b) => b.finalGrade - a.finalGrade);
+                    
+                    // Calculate statistics
+                    const totalStudents = students.length;
+                    const averageGrade = students.length > 0 ? 
+                        students.reduce((sum, student) => sum + student.finalGrade, 0) / totalStudents : 0;
+                    const passingStudents = students.filter(student => student.finalGrade >= 10);
+                    const passRate = students.length > 0 ? (passingStudents.length / totalStudents) * 100 : 0;
+                    
+                    updateProgress(50, 'جاري إنشاء توزيع التقديرات...');
+                    
+                    // Create grade distribution
+                    const gradeDistribution = {};
+                    students.forEach(student => {
+                        if (!gradeDistribution[student.gradeComment]) {
+                            gradeDistribution[student.gradeComment] = 0;
+                        }
+                        gradeDistribution[student.gradeComment]++;
+                    });
+                    
+                    updateProgress(70, 'جاري إنشاء محتوى PDF...');
+                    
+                    // Get data for missing grades if any
+                    let missingDataHtml = '';
+                    if (absentStudents.length > 0 || missingDataStudents.length > 0) {
+                        missingDataHtml = `
+                            <div class="pdf-section">
+                                <h2 class="pdf-section-title">ملاحظات هامة</h2>
+                        `;
+                        
+                        if (absentStudents.length > 0) {
+                            missingDataHtml += `
+                                <div class="mb-4">
+                                    <h3 class="font-bold mb-2">تلاميذ في حالة غياب (${absentStudents.length}):</h3>
+                                    <table class="pdf-table">
+                                        <thead>
+                                            <tr>
+                                                <th>#</th>
+                                                <th>رقم التعريف</th>
+                                                <th>الاسم الكامل</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${absentStudents.map((student, index) => `
+                                                <tr>
+                                                    <td>${index + 1}</td>
+                                                    <td>${student.id}</td>
+                                                    <td>${student.firstName} ${student.lastName}</td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            `;
+                        }
+                        
+                        if (missingDataStudents.length > 0) {
+                            missingDataHtml += `
+                                <div>
+                                    <h3 class="font-bold mb-2">تلاميذ بنقاط غير مكتملة (${missingDataStudents.length}):</h3>
+                                    <table class="pdf-table">
+                                        <thead>
+                                            <tr>
+                                                <th>#</th>
+                                                <th>رقم التعريف</th>
+                                                <th>الاسم الكامل</th>
+                                                <th>النقاط الناقصة</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${missingDataStudents.map((student, index) => {
+                                                const details = student.missingFields.map(field => field.name).join(', ');
+                                                
+                                                return `
+                                                    <tr>
+                                                        <td>${index + 1}</td>
+                                                        <td>${student.id}</td>
+                                                        <td>${student.firstName} ${student.lastName}</td>
+                                                        <td>${details}</td>
+                                                    </tr>
+                                                `;
+                                            }).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            `;
+                        }
+                        
+                        missingDataHtml += `</div>`;
+                    }
+                    
+                    // Generate PDF content HTML
+                    const reportDate = new Date().toLocaleDateString('ar-SA');
+                    
+                    updateProgress(85, 'جاري عرض المعاينة...');
+                    
+                    pdfPreview.innerHTML = `
+                        <div class="pdf-document" dir="rtl">
+                            <div class="pdf-header">
+                                <div class="algerian-gradient"></div>
+                                <h1 class="pdf-title">تقرير نتائج التلاميذ</h1>
+                                <h2 class="pdf-subtitle">${className}</h2>
+                                <p class="pdf-date">تاريخ التقرير: ${reportDate}</p>
+                            </div>
+                            
+                            <div class="pdf-section">
+                                <h2 class="pdf-section-title">ملخص النتائج</h2>
+                                <div class="pdf-stat-grid">
+                                    <div class="pdf-stat-box">
+                                        <div class="pdf-stat-label">عدد التلاميذ</div>
+                                        <div class="pdf-stat-value">${totalStudents}</div>
+                                    </div>
+                                    <div class="pdf-stat-box">
+                                        <div class="pdf-stat-label">المعدل العام</div>
+                                        <div class="pdf-stat-value">${averageGrade.toFixed(2)}</div>
+                                    </div>
+                                    <div class="pdf-stat-box">
+                                        <div class="pdf-stat-label">نسبة النجاح</div>
+                                        <div class="pdf-stat-value">${passRate.toFixed(2)}%</div>
+                                    </div>
+                                    ${students.length > 0 ? `
+                                        <div class="pdf-stat-box">
+                                            <div class="pdf-stat-label">أعلى معدل</div>
+                                            <div class="pdf-stat-value">${students[0].finalGrade.toFixed(2)}</div>
+                                        </div>
+                                        <div class="pdf-stat-box">
+                                            <div class="pdf-stat-label">أدنى معدل</div>
+                                            <div class="pdf-stat-value">${students[students.length - 1].finalGrade.toFixed(2)}</div>
+                                        </div>
+                                    ` : ''}
+                                    <div class="pdf-stat-box">
+                                        <div class="pdf-stat-label">عدد الناجحين</div>
+                                        <div class="pdf-stat-value">${passingStudents.length}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            ${missingDataHtml}
+                            
+                            <div class="pdf-section">
+                                <h2 class="pdf-section-title">توزيع التقديرات</h2>
+                                <table class="pdf-table">
+                                    <thead>
+                                        <tr>
+                                            <th>التقدير</th>
+                                            <th>عدد التلاميذ</th>
+                                            <th>النسبة المئوية</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${Object.entries(gradeDistribution).map(([grade, count]) => `
+                                            <tr>
+                                                <td>${grade}</td>
+                                                <td>${count}</td>
+                                                <td>${((count / totalStudents) * 100).toFixed(1)}%</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <div class="pdf-section">
+                                <h2 class="pdf-section-title">قائمة التلاميذ والنتائج</h2>
+                                <table class="pdf-table">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>رقم التعريف</th>
+                                            <th>الاسم الكامل</th>
+                                            <th>النشاطات</th>
+                                            <th>الفرض</th>
+                                            <th>الاختبار</th>
+                                            <th>المعدل</th>
+                                            <th>التقدير</th>
+                                            <th>الحالة</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${students.map((student, index) => {
+                                            // Add warning symbol for students with missing data
+                                            const missingDataIndicator = student.hasMissingData ? ' ⚠️' : '';
+                                            const statusColor = student.status === 'فوق المعدل' ? '#008f39' : '#d21034';
+                                            
+                                            return `
+                                                <tr>
+                                                    <td>${index + 1}</td>
+                                                    <td>${student.id}</td>
+                                                    <td>${student.firstName} ${student.lastName}${missingDataIndicator}</td>
+                                                    <td>${student.activities.toFixed(2)}</td>
+                                                    <td>${student.exam.toFixed(2)}</td>
+                                                    <td>${student.test.toFixed(2)}</td>
+                                                    <td style="font-weight: bold; ${student.finalGrade < 10 ? 'color: #d21034;' : ''}">${student.finalGrade.toFixed(2)}</td>
+                                                    <td>${student.gradeComment}</td>
+                                                    <td style="font-weight: bold; color: ${statusColor};">${student.status}</td>
+                                                </tr>
+                                            `;
+                                        }).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            ${students.length > 0 ? `
+                                <div class="pdf-section">
+                                    <h2 class="pdf-section-title">أفضل ثلاثة تلاميذ</h2>
+                                    <div style="display: flex; gap: 10mm; margin-bottom: 5mm;">
+                                        ${students.slice(0, Math.min(3, students.length)).map(student => `
+                                            <div style="flex: 1; border: 1px solid #ddd; border-radius: 3mm; padding: 3mm;">
+                                                <h3 style="font-weight: bold; margin-bottom: 2mm;">${student.firstName} ${student.lastName}</h3>
+                                                <p style="font-size: 9pt; color: #666; margin-bottom: 4mm;">${student.id}</p>
+                                                <p style="font-size: 16pt; font-weight: bold; color: #008f39;">${student.finalGrade.toFixed(2)}</p>
+                                                <p>${student.gradeComment}</p>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            ` : ''}
+                            
+                            <div class="pdf-footer">
+                                <p>تم إنشاء هذا التقرير بواسطة نظام تحليل نتائج التلاميذ</p>
+                                <p style="margin-top: 2mm;">تم تطويره من طرف الأستاذ العربي بودهير عبد اللطيف 2025</p>
+                            </div>
+                        </div>
+                    `;
+                    
+                    updateProgress(95, 'جاري فتح نافذة المعاينة...');
+                    
+                    // Show the PDF preview
+                    document.getElementById('pdfPreviewContainer').classList.remove('hidden');
+                    
+                    // Setup download button
+                    document.getElementById('downloadPdfBtn').onclick = function() {
+                        // Create a PDF using jsPDF and html2canvas
+                        const element = document.querySelector('.pdf-document');
+                        
+                        // Show a "generating" status
+                        this.textContent = 'جاري إنشاء PDF...';
+                        this.disabled = true;
+                        showProgressBar();
+                        updateProgress(10, 'جاري تحضير المستند...');
+                        
+                        // Use html2canvas to capture the preview as an image
+                        setTimeout(() => {
+                            html2canvas(element, {
+                                scale: 2, // Higher scale for better quality
+                                useCORS: true,
+                                logging: false,
+                                onclone: (document) => {
+                                    updateProgress(40, 'جاري تحويل المستند إلى صورة...');
+                                }
+                            }).then(canvas => {
+                                updateProgress(70, 'جاري إنشاء ملف PDF...');
+                                
+                                // Create PDF with correct dimensions (A4)
+                                const imgData = canvas.toDataURL('image/png');
+                                const pdf = new jsPDF('p', 'mm', 'a4');
+                                
+                                const pdfWidth = pdf.internal.pageSize.getWidth();
+                                const pdfHeight = pdf.internal.pageSize.getHeight();
+                                
+                                // Calculate the number of pages needed
+                                const imgWidth = canvas.width;
+                                const imgHeight = canvas.height;
+                                const ratio = imgWidth / imgHeight;
+                                
+                                let imgPdfWidth = pdfWidth;
+                                let imgPdfHeight = imgPdfWidth / ratio;
+                                
+                                updateProgress(80, 'جاري إضافة الصفحات...');
+                                
+                                // Add the image to the PDF
+                                pdf.addImage(imgData, 'PNG', 0, 0, imgPdfWidth, imgPdfHeight);
+                                
+                                // If the image height is greater than the page height, add more pages
+                                const pagesNeeded = Math.ceil(imgPdfHeight / pdfHeight);
+                                
+                                for (let i = 1; i < pagesNeeded; i++) {
+                                    pdf.addPage();
+                                    pdf.addImage(imgData, 'PNG', 0, -(i * pdfHeight), imgPdfWidth, imgPdfHeight);
+                                }
+                                
+                                updateProgress(90, 'جاري تحميل الملف...');
+                                
+                                // Save the PDF
+                                pdf.save(`نتائج_${className}_${new Date().toLocaleDateString().replace(/\//g, '-')}.pdf`);
+                                
+                                updateProgress(100, 'تم تحميل PDF بنجاح!');
+                                
+                                // Reset button
+                                this.textContent = 'تحميل PDF';
+                                this.disabled = false;
+                                
+                                setTimeout(() => {
+                                    hideProgressBar();
+                                }, 1000);
+                                
+                            }).catch(error => {
+                                console.error('Error generating PDF:', error);
+                                showNotification('حدث خطأ أثناء إنشاء ملف PDF', 'error');
+                                
+                                // Reset button
+                                this.textContent = 'تحميل PDF';
+                                this.disabled = false;
+                                hideProgressBar();
+                            });
+                        }, 100);
+                    };
+                    
+                    updateProgress(100, 'تم إنشاء المعاينة بنجاح!');
+                    setTimeout(() => {
+                        hideProgressBar();
+                    }, 1000);
+                    
+                    // Reset export button
+                    exportBtn.disabled = false;
+                    exportBtn.innerHTML = '<span>تحميل التقرير كملف PDF</span>';
+                    
+                } catch (error) {
+                    console.error('Error generating PDF preview:', error);
+                    showNotification('حدث خطأ أثناء إنشاء معاينة PDF: ' + error.message, 'error');
+                    exportBtn.disabled = false;
+                    exportBtn.innerHTML = '<span>تحميل التقرير كملف PDF</span>';
+                    hideProgressBar();
+                }
+            }, 100);
+        }
+        
+        // Export to Word
+        function exportWord() {
+            const className = document.getElementById('className').value || 'القسم';
+            const rows = studentRows.querySelectorAll('tr');
+            if (rows.length === 0) {
+                showNotification('يرجى إضافة تلاميذ أولاً قبل التصدير', 'error');
+                return;
+            }
+            
+            // Show loading animation
+            const exportBtn = document.getElementById('exportWordButton');
+            exportBtn.disabled = true;
+            exportBtn.innerHTML = '<span>جاري التحميل...</span><span class="loader mr-3 inline-block w-4 h-4 border-2 border-gray-300 border-t-2 rounded-full"></span>';
+            
+            // Show progress
+            showProgressBar();
+            updateProgress(10, 'جاري جمع البيانات...');
+            
+            setTimeout(() => {
+                try {
+                    // Process student data similar to PDF
+                    const students = [];
+                    const absentStudents = [];
+                    const missingDataStudents = [];
+                    
+                    rows.forEach((row, index) => {
+                        const studentId = row.querySelector('.student-id').value;
+                        const firstName = row.querySelector('.student-first-name').value;
+                        const lastName = row.querySelector('.student-last-name').value;
+                        const activitiesInput = row.querySelector('.student-activities');
+                        const examInput = row.querySelector('.student-exam');
+                        const testInput = row.querySelector('.student-test');
+                        
+                        // Get exact missing input information
+                        const missingFields = [];
+                        
+                        if (!activitiesInput.value) {
+                            missingFields.push({
+                                name: 'النشاطات',
+                                id: activitiesInput.id || 'نشاطات' + studentIdCounter
+                            });
+                        }
+                        
+                        if (!examInput.value) {
+                            missingFields.push({
+                                name: 'الفرض',
+                                id: examInput.id || 'فرض' + studentIdCounter
+                            });
+                        }
+                        
+                        if (!testInput.value) {
+                            missingFields.push({
+                                name: 'الاختبار',
+                                id: testInput.id || 'اختبار' + studentIdCounter
+                            });
+                        }
+                        
+                        const activities = parseFloat(activitiesInput.value);
+                        const exam = parseFloat(examInput.value);
+                        const test = parseFloat(testInput.value);
+                        
+                        if (!firstName && !lastName) {
+                            return; // Skip completely empty rows
+                        }
+                        
+                        // Check for missing data
+                        const hasMissingData = isNaN(activities) || isNaN(exam) || isNaN(test);
+                        
+                        // Calculate final grade with available data (or 0 if missing)
+                        const activitiesValue = isNaN(activities) ? 0 : activities;
+                        const examValue = isNaN(exam) ? 0 : exam;
+                        const testValue = isNaN(test) ? 0 : test;
+                        
+                        const finalGrade = calculateFinalGrade(activitiesValue, examValue, testValue);
+                        const gradeComment = classifyGrade(finalGrade);
+                        
+                        const studentInfo = {
+                            id: studentId || `طالب ${students.length + absentStudents.length + 1}`,
+                            firstName: firstName || '',
+                            lastName: lastName || '',
+                            activities: activitiesValue,
+                            exam: examValue,
+                            test: testValue,
+                            hasMissingData,
+                            missingFields,
+                            finalGrade,
+                            gradeComment,
+                            status: finalGrade >= totalAverage ? 'فوق المعدل' : 'تحت المعدل',
+                            rowIndex: index + 9 // Add row index for Excel mapping
+                        };
+                        
+                        // Check if student should be considered absent (all grades are 0)
+                        if (activitiesValue === 0 && examValue === 0 && testValue === 0) {
+                            absentStudents.push(studentInfo);
+                        } else if (hasMissingData) {
+                            // Add to main analysis but also track as having missing data
+                            students.push(studentInfo);
+                            missingDataStudents.push(studentInfo);
+                        } else {
+                            // Regular student with complete data
+                            students.push(studentInfo);
+                        }
+                    });
+                    
+                    updateProgress(30, 'جاري حساب الإحصائيات...');
+                    
+                    // Sort students by final grade (descending)
+                    students.sort((a, b) => b.finalGrade - a.finalGrade);
+                    
+                    // Calculate statistics
+                    const totalStudents = students.length;
+                    const averageGrade = students.length > 0 ? 
+                        students.reduce((sum, student) => sum + student.finalGrade, 0) / totalStudents : 0;
+                    const passingStudents = students.filter(student => student.finalGrade >= 10);
+                    const passRate = students.length > 0 ? (passingStudents.length / totalStudents) * 100 : 0;
+                    
+                    updateProgress(50, 'جاري إنشاء محتوى Word...');
+                    
+                    // Create HTML content for Word
+                    const reportDate = new Date().toLocaleDateString('ar-SA');
+                    
+                    // Create the HTML content for the Word document
+                    let docContent = `
+                        <html>
+                        <head>
+                            <meta charset="UTF-8">
+                            <style>
+                                body { font-family: 'Arial', 'Tajawal', sans-serif; direction: rtl; }
+                                h1 { color: #008f39; }
+                                table { width: 100%; border-collapse: collapse; }
+                                th { background-color: #f0f0f0; }
+                                td, th { border: 1px solid #ddd; padding: 8px; }
+                                .above-average { color: #008f39; }
+                                .below-average { color: #d21034; }
+                            </style>
+                        </head>
+                        <body>
+                            <h1>تقرير نتائج التلاميذ</h1>
+                            <h2>${className}</h2>
+                            <p>تاريخ التقرير: ${reportDate}</p>
+                            
+                            <h3>ملخص النتائج</h3>
+                            <table>
+                                <tr>
+                                    <td>عدد التلاميذ</td>
+                                    <td>${totalStudents}</td>
+                                    <td>المعدل العام</td>
+                                    <td>${averageGrade.toFixed(2)}</td>
+                                </tr>
+                                <tr>
+                                    <td>نسبة النجاح</td>
+                                    <td>${passRate.toFixed(2)}%</td>
+                                    <td>عدد الناجحين</td>
+                                    <td>${passingStudents.length}</td>
+                                </tr>
+                    `;
+                    
+                    if (students.length > 0) {
+                        docContent += `
+                                <tr>
+                                    <td>أعلى معدل</td>
+                                    <td>${students[0].finalGrade.toFixed(2)}</td>
+                                    <td>أدنى معدل</td>
+                                    <td>${students[students.length - 1].finalGrade.toFixed(2)}</td>
+                                </tr>
+                        `;
+                    }
+                    
+                    docContent += `
+                            </table>
+                    `;
+                    
+                    updateProgress(70, 'جاري إضافة بيانات الطلاب...');
+                    
+                    // Add missing data section if needed
+                    if (absentStudents.length > 0 || missingDataStudents.length > 0) {
+                        docContent += `<h3>ملاحظات هامة</h3>`;
+                        
+                        if (absentStudents.length > 0) {
+                            docContent += `
+                                <h4>تلاميذ في حالة غياب (${absentStudents.length}):</h4>
+                                <table>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>رقم التعريف</th>
+                                        <th>الاسم الكامل</th>
+                                    </tr>
+                            `;
+                            
+                            absentStudents.forEach((student, index) => {
+                                docContent += `
+                                    <tr>
+                                        <td>${index + 1}</td>
+                                        <td>${student.id}</td>
+                                        <td>${student.firstName} ${student.lastName}</td>
+                                    </tr>
+                                `;
+                            });
+                            
+                            docContent += `</table>`;
+                        }
+                        
+                        if (missingDataStudents.length > 0) {
+                            docContent += `
+                                <h4>تلاميذ بنقاط غير مكتملة (${missingDataStudents.length}):</h4>
+                                <table>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>رقم التعريف</th>
+                                        <th>الاسم الكامل</th>
+                                        <th>النقاط الناقصة</th>
+                                    </tr>
+                            `;
+                            
+                            missingDataStudents.forEach((student, index) => {
+                                const details = student.missingFields.map(field => field.name).join(', ');
+                                
+                                docContent += `
+                                    <tr>
+                                        <td>${index + 1}</td>
+                                        <td>${student.id}</td>
+                                        <td>${student.firstName} ${student.lastName}</td>
+                                        <td>${details}</td>
+                                    </tr>
+                                `;
+                            });
+                            
+                            docContent += `</table>`;
+                        }
+                    }
+                    
+                    // Add results table
+                    docContent += `
+                        <h3>قائمة التلاميذ والنتائج</h3>
+                        <table>
+                            <tr>
+                                <th>#</th>
+                                <th>رقم التعريف</th>
+                                <th>الاسم الكامل</th>
+                                <th>النشاطات</th>
+                                <th>الفرض</th>
+                                <th>الاختبار</th>
+                                <th>المعدل</th>
+                                <th>التقدير</th>
+                                <th>الحالة</th>
+                            </tr>
+                    `;
+                    
+                    students.forEach((student, index) => {
+                        const statusClass = student.status === 'فوق المعدل' ? 'above-average' : 'below-average';
+                        const gradeClass = student.finalGrade < 10 ? 'below-average' : '';
+                        
+                        docContent += `
+                            <tr>
+                                <td>${index + 1}</td>
+                                <td>${student.id}</td>
+                                <td>${student.firstName} ${student.lastName}${student.hasMissingData ? ' ⚠️' : ''}</td>
+                                <td>${student.activities.toFixed(2)}</td>
+                                <td>${student.exam.toFixed(2)}</td>
+                                <td>${student.test.toFixed(2)}</td>
+                                <td class="${gradeClass}">${student.finalGrade.toFixed(2)}</td>
+                                <td>${student.gradeComment}</td>
+                                <td class="${statusClass}">${student.status}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    docContent += `
+                            </table>
+                            
+                            <p style="text-align: center; margin-top: 20px;">تم إنشاء هذا التقرير بواسطة نظام تحليل نتائج التلاميذ</p>
+                            <p style="text-align: center;">تم تطويره من طرف الأستاذ العربي بودهير عبد اللطيف 2025</p>
+                        </body>
+                        </html>
+                    `;
+                    
+                    updateProgress(90, 'جاري تنزيل المستند...');
+                    
+                    // Convert HTML content to a Blob and download
+                    const blob = new Blob([docContent], { type: 'application/msword' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `نتائج_${className}_${new Date().toLocaleDateString().replace(/\//g, '-')}.doc`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    
+                    updateProgress(100, 'تم تحميل مستند Word بنجاح!');
+                    
+                    // Hide progress after delay
+                    setTimeout(() => {
+                        hideProgressBar();
+                    }, 1000);
+                    
+                    showNotification('تم تحميل ملف Word بنجاح', 'success');
+                    
+                } catch (error) {
+                    console.error('Error creating Word file:', error);
+                    showNotification('حدث خطأ أثناء إنشاء ملف Word: ' + error.message, 'error');
+                    hideProgressBar();
+                }
+                
+                // Reset button state
+                exportBtn.disabled = false;
+                exportBtn.innerHTML = '<span>تحميل التقرير كملف Word</span>';
+            }, 100);
+        }
+        
+        // Function to show notifications
+        function showNotification(message, type = 'info') {
+            // Create notification element
+            const notification = document.createElement('div');
+            
+            // Set classes based on type
+            let bgColor, textColor;
+            if (type === 'error') {
+                bgColor = 'bg-red-100 dark:bg-red-900';
+                textColor = 'text-red-800 dark:text-red-200';
+            } else if (type === 'success') {
+                bgColor = 'bg-green-100 dark:bg-green-900';
+                textColor = 'text-green-800 dark:text-green-200';
+            } else if (type === 'warning') {
+                bgColor = 'bg-yellow-100 dark:bg-yellow-900';
+                textColor = 'text-yellow-800 dark:text-yellow-200';
+            } else {
+                bgColor = 'bg-blue-100 dark:bg-blue-900';
+                textColor = 'text-blue-800 dark:text-blue-200';
+            }
+            
+            notification.className = `fixed bottom-4 right-4 p-4 rounded-lg shadow-lg ${bgColor} ${textColor} z-50 transition-opacity duration-300`;
+            notification.innerHTML = `<p>${message}</p>`;
+            
+            // Add to DOM
+            document.body.appendChild(notification);
+            
+            // Remove after 4 seconds
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                setTimeout(() => {
+                    notification.remove();
+                }, 300);
+            }, 4000);
+        }
+        
+        // Event Listeners
+        console.log("Setting up event listeners");
+
+        addStudentBtn.addEventListener('click', function() {
+            console.log("Add student button clicked");
+            addStudentRow();
+        });
+        
+        analyzeBtn.addEventListener('click', function() {
+            console.log("Analyze button clicked");
+            analyzeGrades();
+        });
+        
+        excelFileInput.addEventListener('change', function(e) {
+            console.log("Excel file selected");
+            if (this.files && this.files[0]) {
+                processExcelFile(this.files[0]);
+            }
+        });
+        
+        document.getElementById('exportPdfButton').addEventListener('click', function() {
+            console.log("Export PDF button clicked");
+            exportPdf();
+        });
+        
+        document.getElementById('exportWordButton').addEventListener('click', function() {
+            console.log("Export Word button clicked");
+            exportWord();
+        });
+        
+        document.getElementById('exportExcelButton').addEventListener('click', function() {
+            console.log("Export Excel button clicked");
+            exportExcel();
+        });
+        
+        document.getElementById('closePdfPreview').addEventListener('click', function() {
+            console.log("Close PDF preview button clicked");
+            document.getElementById('pdfPreviewContainer').classList.add('hidden');
+        });
+        
+        // Add console log to verify the DOM is loaded
+        console.log("DOM fully loaded");
+        console.log("analyzeBtn reference:", analyzeBtn);
+        
+        // Initialize with one empty student row
+        addStudentRow();
+    </script>
+</body>
+</html>
